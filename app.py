@@ -11,23 +11,22 @@ st.set_page_config(
 ANIO_PERMITIDO = 2026
 CUPO_MAXIMO = 2
 
-# ---------------- GOOGLE DRIVE LINKS ----------------
-# IDs de tus CSV públicos en Drive
-instructores_id = "1jWBZJcTFpnROcIJAw9A366ks3LpMDUKG"
-cursos_id = "16Qn-5s7ZrN48OJxkv1l7aHLeXD-AKRCi"
+# ---------------- ARCHIVOS LOCALES ----------------
+ARCHIVO_INSTRUCTORES = "instructores.csv"
+ARCHIVO_CURSOS = "cursos.csv"
 
-# URLs de descarga directa
-instructores_url = f"https://drive.google.com/uc?export=download&id={instructores_id}"
-cursos_url = f"https://drive.google.com/uc?export=download&id={cursos_id}"
+# Carpeta donde se guardarán las inscripciones
+CARPETA_INSCRIPCIONES = "Inscripciones"
+if not os.path.exists(CARPETA_INSCRIPCIONES):
+    os.makedirs(CARPETA_INSCRIPCIONES)
 
-# Archivo local de inscripciones
-ARCHIVO_INSCRIPCIONES = "inscripciones.csv"
+ARCHIVO_INSCRIPCIONES = os.path.join(CARPETA_INSCRIPCIONES, "inscripciones.csv")
 
 # ---------------- CARGA DE DATOS ----------------
 @st.cache_data
 def cargar_datos():
-    instructores = pd.read_csv(instructores_url)
-    cursos = pd.read_csv(cursos_url)
+    instructores = pd.read_csv(ARCHIVO_INSTRUCTORES)
+    cursos = pd.read_csv(ARCHIVO_CURSOS)
 
     # Normalizar columnas
     instructores.columns = instructores.columns.str.strip()
@@ -45,6 +44,7 @@ def cargar_datos():
 
     return instructores, cursos
 
+# ---------------- INSCRIPCIONES ----------------
 def cargar_inscripciones():
     if os.path.exists(ARCHIVO_INSCRIPCIONES):
         return pd.read_csv(ARCHIVO_INSCRIPCIONES)
@@ -61,7 +61,10 @@ def guardar_inscripcion(df):
 
 # ---------------- APP ----------------
 instructores_df, cursos_df = cargar_datos()
-inscripciones_df = cargar_inscripciones()
+
+# Inicializar inscripciones en session_state
+if "inscripciones_df" not in st.session_state:
+    st.session_state.inscripciones_df = cargar_inscripciones()
 
 st.title("📋 Inscripción de Instructores – Cursos TRA")
 
@@ -117,38 +120,48 @@ if ver_cursos:
         instancia = cursos_2026.loc[idx]
 
         # Validar cupo
-        insc = inscripciones_df[
-            (inscripciones_df["Curso"] == instancia["Nombre corto"]) &
-            (inscripciones_df["Teórico Virtual (inicio)"] == instancia.get("Teórico Virtual (inicio)", "")) &
-            (inscripciones_df["Instancia Presencial (inicio)"] == instancia.get("Instancia Presencial (inicio)", ""))
+        insc = st.session_state.inscripciones_df[
+            (st.session_state.inscripciones_df["Curso"] == instancia["Nombre corto"]) &
+            (st.session_state.inscripciones_df["Teórico Virtual (inicio)"] == instancia.get("Teórico Virtual (inicio)", "")) &
+            (st.session_state.inscripciones_df["Instancia Presencial (inicio)"] == instancia.get("Instancia Presencial (inicio)", ""))
         ]
 
         if len(insc) >= CUPO_MAXIMO:
             st.error("❌ Cupo completo para esta instancia.")
-            st.stop()
+        else:
+            # Evitar doble inscripción
+            ya_inscripto = st.session_state.inscripciones_df[
+                (st.session_state.inscripciones_df["Instructor"] == instructor) &
+                (st.session_state.inscripciones_df["Curso"] == instancia["Nombre corto"])
+            ]
+            if not ya_inscripto.empty:
+                st.error("❌ Ya estás inscripto en este curso.")
+            else:
+                # Guardar inscripción
+                nueva = pd.DataFrame([{
+                    "Instructor": instructor,
+                    "Curso": instancia["Nombre corto"],
+                    "Teórico Virtual (inicio)": instancia.get("Teórico Virtual (inicio)", ""),
+                    "Instancia Presencial (inicio)": instancia.get("Instancia Presencial (inicio)", "")
+                }])
 
-        # Evitar doble inscripción
-        ya_inscripto = inscripciones_df[
-            (inscripciones_df["Instructor"] == instructor) &
-            (inscripciones_df["Curso"] == instancia["Nombre corto"])
-        ]
-        if not ya_inscripto.empty:
-            st.error("❌ Ya estás inscripto en este curso.")
-            st.stop()
-
-        # Guardar inscripción
-        nueva = pd.DataFrame([{
-            "Instructor": instructor,
-            "Curso": instancia["Nombre corto"],
-            "Teórico Virtual (inicio)": instancia.get("Teórico Virtual (inicio)", ""),
-            "Instancia Presencial (inicio)": instancia.get("Instancia Presencial (inicio)", "")
-        }])
-
-        inscripciones_df = pd.concat([inscripciones_df, nueva], ignore_index=True)
-        guardar_inscripcion(inscripciones_df)
-
-        st.success("✅ Inscripción confirmada correctamente")
+                st.session_state.inscripciones_df = pd.concat(
+                    [st.session_state.inscripciones_df, nueva],
+                    ignore_index=True
+                )
+                guardar_inscripcion(st.session_state.inscripciones_df)
+                st.success(f"✅ Inscripción confirmada. Archivo guardado en `{ARCHIVO_INSCRIPCIONES}`")
 
 # ---------------- TABLA DE INSCRIPCIONES ----------------
 st.subheader("📄 Inscripciones actuales")
-st.dataframe(inscripciones_df)
+st.dataframe(st.session_state.inscripciones_df)
+
+# ---------------- OPCIÓN DE DESCARGA ----------------
+csv = st.session_state.inscripciones_df.to_csv(index=False).encode('utf-8')
+st.download_button(
+    label="📥 Descargar CSV de inscripciones",
+    data=csv,
+    file_name="inscripciones.csv",
+    mime="text/csv"
+)
+
