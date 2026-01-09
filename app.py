@@ -1,20 +1,17 @@
 import streamlit as st
 import pandas as pd
-import os
 
 # ===============================
 # CONFIGURACIÓN GENERAL
 # ===============================
 CUPO_MAX = 2
 ANIO_PERMITIDO = 2026
-INSCRIPCIONES_FILE = "inscripciones.csv"
 
-st.set_page_config(page_title="Inscripción Instructores TRA 2026")
-
-st.title("📋 Inscripción de Instructores – Cursos TRA 2026")
+st.set_page_config(page_title="Inscripción Instructores TRA", layout="centered")
+st.title("📋 Inscripción de Instructores – Cursos TRA")
 
 # ===============================
-# CARGA DE DATOS
+# CARGA Y LIMPIEZA DE DATOS
 # ===============================
 
 @st.cache_data
@@ -22,41 +19,22 @@ def cargar_datos():
     instructores = pd.read_csv("Clasificación de Instructores.csv")
     cursos = pd.read_csv("Planificación Cursos TRA (3).csv")
 
-    # Limpiar nombres de columnas
-    instructores.columns = instructores.columns.str.strip()
-    cursos.columns = cursos.columns.str.strip()
-
-    # Normalizar instructores
+    # Normalización básica
     instructores["Instructor"] = instructores["Instructor"].astype(str).str.strip()
     instructores["Cursos"] = instructores["Cursos"].astype(str).str.strip()
 
-    # Normalizar cursos
     cursos["Nombre corto"] = cursos["Nombre corto"].astype(str).str.strip()
 
-    # Buscar columna año real
-    col_anio = None
-    for c in cursos.columns:
-        c_norm = c.upper().replace("Ñ", "N").strip()
-        if c_norm in ["Año", "ANIO"]:
-            col_anio = c
-            break
-
-    if col_anio is None:
-        st.error(
-            "No se encontró columna de año.\n\n"
-            f"Columnas disponibles:\n{list(cursos.columns)}"
+    # Limpieza de AÑO (puede venir como texto)
+    if "AÑO" in cursos.columns:
+        cursos["AÑO_LIMPIO"] = (
+            cursos["AÑO"]
+            .astype(str)
+            .str.extract(r"(\d{4})")[0]
+            .astype(float)
         )
-        st.stop()
-
-    # Crear AÑO_LIMPIO SIEMPRE
-    cursos["AÑO_LIMPIO"] = (
-        cursos[col_anio]
-        .astype(str)
-        .str.strip()
-        .str.replace(".0", "", regex=False)
-    )
-
-    cursos["AÑO_LIMPIO"] = pd.to_numeric(cursos["AÑO_LIMPIO"], errors="coerce")
+    else:
+        cursos["AÑO_LIMPIO"] = None
 
     return instructores, cursos
 
@@ -64,12 +42,12 @@ def cargar_datos():
 instructores, cursos = cargar_datos()
 
 # ===============================
-# CARGA / CREACIÓN INSCRIPCIONES
+# INSCRIPCIONES
 # ===============================
 
-if os.path.exists(INSCRIPCIONES_FILE):
-    inscripciones = pd.read_csv(INSCRIPCIONES_FILE)
-else:
+try:
+    inscripciones = pd.read_csv("inscripciones.csv")
+except FileNotFoundError:
     inscripciones = pd.DataFrame(columns=[
         "Instructor",
         "Curso",
@@ -84,7 +62,7 @@ else:
 with st.form("form_inscripcion"):
 
     instructor = st.selectbox(
-        "Instructor",
+        "👤 Seleccione su nombre",
         sorted(instructores["Instructor"].unique())
     )
 
@@ -92,65 +70,81 @@ with st.form("form_inscripcion"):
         instructores["Instructor"] == instructor
     ]["Cursos"].unique()
 
+    if len(cursos_habilitados) == 0:
+        st.warning("Este instructor no tiene cursos habilitados.")
+        st.stop()
+
     curso = st.selectbox(
-        "Curso",
-        cursos_habilitados
+        "📘 Seleccione el curso",
+        sorted(cursos_habilitados)
     )
+
+    # ===============================
+    # FILTRAR INSTANCIAS 2026
+    # ===============================
 
     instancias = cursos[
         (cursos["Nombre corto"] == curso) &
         (cursos["AÑO_LIMPIO"] == ANIO_PERMITIDO)
     ].reset_index(drop=True)
 
-    opciones_instancias = [
-        f"Virtual: {row['Teórico Virtual (inicio)']} → {row['Teórico Virtual (fin)']} | "
-        f"Presencial: {row['Instancia Presencial (inicio)']} → {row['Presencial (fin)']}"
-        for _, row in instancias.iterrows()
-    ]
+    if instancias.empty:
+        st.warning("📅 No hay instancias planificadas para este curso en 2026.")
+        st.stop()
 
-    instancia_elegida = st.selectbox(
-        "Instancia",
-        opciones_instancias
+    opciones = []
+    for i, row in instancias.iterrows():
+        opciones.append(
+            f"Virtual: {row['Teórico Virtual (inicio)']} → {row['Teórico Virtual (fin)']} | "
+            f"Presencial: {row['Instancia Presencial (inicio)']} → {row['Presencial (fin)']}"
+        )
+
+    opcion = st.selectbox(
+        "🗓️ Seleccione la instancia",
+        opciones
     )
 
-    # 👉 ESTE BOTÓN ES OBLIGATORIO
-    enviar = st.form_submit_button("Confirmar inscripción")
-
+    submit = st.form_submit_button("✅ Confirmar inscripción")
 
 # ===============================
 # PROCESAR INSCRIPCIÓN
 # ===============================
 
-if enviar:
+if submit:
+    idx = opciones.index(opcion)
+    instancia = instancias.iloc[idx]
 
-    idx = opciones_instancias.index(instancia_elegida)
-    fila = instancias.iloc[idx]
-
+    # Validar cupo
     inscriptos = inscripciones[
         (inscripciones["Curso"] == curso) &
-        (inscripciones["Teórico Virtual (inicio)"] == fila["Teórico Virtual (inicio)"]) &
-        (inscripciones["Instancia Presencial (inicio)"] == fila["Instancia Presencial (inicio)"])
+        (inscripciones["Teórico Virtual (inicio)"] == instancia["Teórico Virtual (inicio)"]) &
+        (inscripciones["Instancia Presencial (inicio)"] == instancia["Instancia Presencial (inicio)"])
     ]
 
     if len(inscriptos) >= CUPO_MAX:
-        st.error("❌ Cupo completo para esta instancia")
+        st.error("❌ Cupo completo para esta instancia.")
         st.stop()
 
-    if not inscripciones[
+    # Evitar doble inscripción
+    ya_inscripto = inscripciones[
         (inscripciones["Instructor"] == instructor) &
         (inscripciones["Curso"] == curso)
-    ].empty:
-        st.error("❌ Ya estás inscripto en este curso")
+    ]
+
+    if not ya_inscripto.empty:
+        st.error("❌ Ya estás inscripto en este curso.")
         st.stop()
 
+    # Guardar inscripción
     nueva = pd.DataFrame([{
         "Instructor": instructor,
         "Curso": curso,
-        "Teórico Virtual (inicio)": fila["Teórico Virtual (inicio)"],
-        "Instancia Presencial (inicio)": fila["Instancia Presencial (inicio)"]
+        "Teórico Virtual (inicio)": instancia["Teórico Virtual (inicio)"],
+        "Instancia Presencial (inicio)": instancia["Instancia Presencial (inicio)"]
     }])
 
     inscripciones = pd.concat([inscripciones, nueva], ignore_index=True)
-    inscripciones.to_csv(INSCRIPCIONES_FILE, index=False)
+    inscripciones.to_csv("inscripciones.csv", index=False)
 
-    st.success("✅ Inscripción confirmada")
+    st.success("🎉 Inscripción confirmada correctamente.")
+
