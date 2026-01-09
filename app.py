@@ -22,17 +22,41 @@ def cargar_datos():
     instructores = pd.read_csv("Clasificación de Instructores.csv")
     cursos = pd.read_csv("Planificación Cursos TRA (3).csv")
 
+    # Limpiar nombres de columnas
+    instructores.columns = instructores.columns.str.strip()
+    cursos.columns = cursos.columns.str.strip()
+
+    # Normalizar instructores
     instructores["Instructor"] = instructores["Instructor"].astype(str).str.strip()
     instructores["Cursos"] = instructores["Cursos"].astype(str).str.strip()
 
+    # Normalizar cursos
     cursos["Nombre corto"] = cursos["Nombre corto"].astype(str).str.strip()
-    cursos["Año"] = (
-        cursos["Año"]
+
+    # Buscar columna año real
+    col_anio = None
+    for c in cursos.columns:
+        c_norm = c.upper().replace("Ñ", "N").strip()
+        if c_norm in ["AÑO", "ANIO"]:
+            col_anio = c
+            break
+
+    if col_anio is None:
+        st.error(
+            "No se encontró columna de año.\n\n"
+            f"Columnas disponibles:\n{list(cursos.columns)}"
+        )
+        st.stop()
+
+    # Crear AÑO_LIMPIO SIEMPRE
+    cursos["AÑO_LIMPIO"] = (
+        cursos[col_anio]
         .astype(str)
         .str.strip()
         .str.replace(".0", "", regex=False)
     )
-    cursos["Año"] = pd.to_numeric(cursos["Año"], errors="coerce")
+
+    cursos["AÑO_LIMPIO"] = pd.to_numeric(cursos["AÑO_LIMPIO"], errors="coerce")
 
     return instructores, cursos
 
