@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import os
@@ -48,7 +47,9 @@ def cargar_inscripciones():
             "Instructor",
             "Curso",
             "Teórico Virtual (inicio)",
-            "Instancia Presencial (inicio)"
+            "Teórico Virtual (fin)",
+            "Instancia Presencial (inicio)",
+            "Instancia Presencial (fin)"
         ])
 
 
@@ -97,56 +98,66 @@ if ver_cursos:
 
     st.success("Instancias disponibles")
 
-# ---------------- FORM 2 ----------------
-with st.form("form_inscripcion"):
-    opciones = []
-    for _, row in cursos_2026.iterrows():
-        opciones.append(
-            f"{row['Nombre corto']} | "
-            f"Virtual: {row.get('Teórico Virtual (inicio)', '—')} → {row.get('Teórico Virtual (fin)', '—')} | "
-            f"Presencial: {row.get('Instancia Presencial (inicio)', '—')} → {row.get('Instancia Presencial (fin)', '—')}"
-        )
+    # ---------------- FORM 2 ----------------
+    with st.form("form_inscripcion"):
 
-    opcion = st.selectbox("Seleccione la instancia", opciones)
-    confirmar = st.form_submit_button("Confirmar inscripción")
+        # --- Preparar opciones con 4 fechas ---
+        opciones = []
+        for _, row in cursos_2026.iterrows():
+            # Convertir fechas largas en dd/mm para que no se corte
+            def formato_fecha(fecha):
+                try:
+                    return pd.to_datetime(fecha).strftime('%d/%m')
+                except:
+                    return "—"
 
-if confirmar:
-    idx = opciones.index(opcion)
-    instancia = cursos_2026.loc[idx]
+            opciones.append(
+                f"{row['Nombre corto']}\n"
+                f"Virtual: {formato_fecha(row.get('Teórico Virtual (inicio)', ''))} → {formato_fecha(row.get('Teórico Virtual (fin)', ''))}\n"
+                f"Presencial: {formato_fecha(row.get('Instancia Presencial (inicio)', ''))} → {formato_fecha(row.get('Instancia Presencial (fin)', ''))}"
+            )
 
-    # ---- Validar cupo ----
-    inscriptos = inscripciones_df[
-        (inscripciones_df["Curso"] == instancia["Nombre corto"]) &
-        (inscripciones_df["Teórico Virtual (inicio)"] == instancia.get("Teórico Virtual (inicio)", "")) &
-        (inscripciones_df["Instancia Presencial (inicio)"] == instancia.get("Instancia Presencial (inicio)", ""))
-    ]
+        opcion = st.selectbox("Seleccione la instancia", opciones)
+        confirmar = st.form_submit_button("Confirmar inscripción")
 
-    if len(inscriptos) >= CUPO_MAXIMO:
-        st.error("❌ Cupo completo para esta instancia.")
-        st.stop()
+    if confirmar:
+        idx = opciones.index(opcion)
+        instancia = cursos_2026.loc[idx]
 
-    # ---- Evitar doble inscripción ----
-    ya_inscripto = inscripciones_df[
-        (inscripciones_df["Instructor"] == instructor) &
-        (inscripciones_df["Curso"] == instancia["Nombre corto"])
-    ]
+        # ---- Validar cupo usando las 4 fechas ----
+        inscriptos = inscripciones_df[
+            (inscripciones_df["Curso"] == instancia["Nombre corto"]) &
+            (inscripciones_df["Teórico Virtual (inicio)"] == instancia.get("Teórico Virtual (inicio)", "")) &
+            (inscripciones_df["Teórico Virtual (fin)"] == instancia.get("Teórico Virtual (fin)", "")) &
+            (inscripciones_df["Instancia Presencial (inicio)"] == instancia.get("Instancia Presencial (inicio)", "")) &
+            (inscripciones_df["Instancia Presencial (fin)"] == instancia.get("Instancia Presencial (fin)", ""))
+        ]
 
-    if not ya_inscripto.empty:
-        st.error("❌ Ya estás inscripto en este curso.")
-        st.stop()
+        if len(inscriptos) >= CUPO_MAXIMO:
+            st.error("❌ Cupo completo para esta instancia.")
+            st.stop()
 
-    # ---- Guardar ----
-    nueva = pd.DataFrame([{
-        "Instructor": instructor,
-        "Curso": instancia["Nombre corto"],
-        "Teórico Virtual (inicio)": instancia.get("Teórico Virtual (inicio)", ""),
-        "Teórico Virtual (fin)": instancia.get("Teórico Virtual (fin)", ""),
-        "Instancia Presencial (inicio)": instancia.get("Instancia Presencial (inicio)", ""),
-        "Instancia Presencial (fin)": instancia.get("Instancia Presencial (fin)", "")
-    }])
+        # ---- Evitar doble inscripción ----
+        ya_inscripto = inscripciones_df[
+            (inscripciones_df["Instructor"] == instructor) &
+            (inscripciones_df["Curso"] == instancia["Nombre corto"])
+        ]
 
-    inscripciones_df = pd.concat([inscripciones_df, nueva], ignore_index=True)
-    guardar_inscripcion(inscripciones_df)
+        if not ya_inscripto.empty:
+            st.error("❌ Ya estás inscripto en este curso.")
+            st.stop()
 
-    st.success("✅ Inscripción confirmada correctamente")
+        # ---- Guardar inscripción con las 4 fechas ----
+        nueva = pd.DataFrame([{
+            "Instructor": instructor,
+            "Curso": instancia["Nombre corto"],
+            "Teórico Virtual (inicio)": instancia.get("Teórico Virtual (inicio)", ""),
+            "Teórico Virtual (fin)": instancia.get("Teórico Virtual (fin)", ""),
+            "Instancia Presencial (inicio)": instancia.get("Instancia Presencial (inicio)", ""),
+            "Instancia Presencial (fin)": instancia.get("Instancia Presencial (fin)", "")
+        }])
 
+        inscripciones_df = pd.concat([inscripciones_df, nueva], ignore_index=True)
+        guardar_inscripcion(inscripciones_df)
+
+        st.success("✅ Inscripción confirmada correctamente")
