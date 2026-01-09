@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
-import gspread
-from google.oauth2.service_account import Credentials
+import os
 
 # ---------------- CONFIGURACIÓN ----------------
 st.set_page_config(
@@ -12,26 +11,16 @@ st.set_page_config(
 ANIO_PERMITIDO = 2026
 CUPO_MAXIMO = 2
 
-# ---------------- ARCHIVOS LOCALES ----------------
+# ---------------- ARCHIVOS ----------------
 ARCHIVO_INSTRUCTORES = "Clasificación de Instructores.csv"
 ARCHIVO_CURSOS = "Planificación Cursos TRA (3).csv"
 
-# ---------------- GOOGLE SHEETS ----------------
-# Ruta al JSON de credenciales del Service Account
-CREDENCIALES_JSON = "service_account.json"
-# ID del Google Sheet
-GOOGLE_SHEET_ID = "TU_GOOGLE_SHEET_ID"
+# Carpeta donde se guardarán las inscripciones
+CARPETA_INSCRIPCIONES = "Inscripciones"
+if not os.path.exists(CARPETA_INSCRIPCIONES):
+    os.makedirs(CARPETA_INSCRIPCIONES)
 
-# Autenticación
-scopes = ['https://www.googleapis.com/auth/spreadsheets']
-creds = Credentials.from_service_account_file(CREDENCIALES_JSON, scopes=scopes)
-gc = gspread.authorize(creds)
-sheet = gc.open_by_key(GOOGLE_SHEET_ID)
-try:
-    worksheet = sheet.worksheet("Inscripciones")
-except gspread.WorksheetNotFound:
-    worksheet = sheet.add_worksheet(title="Inscripciones", rows="100", cols="10")
-    worksheet.append_row(["Instructor","Curso","Teórico Virtual (inicio)","Instancia Presencial (inicio)"])
+ARCHIVO_INSCRIPCIONES = os.path.join(CARPETA_INSCRIPCIONES, "inscripciones.csv")
 
 # ---------------- FUNCIONES ----------------
 @st.cache_data
@@ -54,14 +43,18 @@ def cargar_datos():
     return instructores, cursos
 
 def cargar_inscripciones():
-    data = worksheet.get_all_records()
-    return pd.DataFrame(data)
+    if os.path.exists(ARCHIVO_INSCRIPCIONES):
+        return pd.read_csv(ARCHIVO_INSCRIPCIONES)
+    else:
+        return pd.DataFrame(columns=[
+            "Instructor",
+            "Curso",
+            "Teórico Virtual (inicio)",
+            "Instancia Presencial (inicio)"
+        ])
 
 def guardar_inscripcion(df):
-    worksheet.clear()
-    worksheet.append_row(list(df.columns))
-    for _, row in df.iterrows():
-        worksheet.append_row(list(row))
+    df.to_csv(ARCHIVO_INSCRIPCIONES, index=False)
 
 # ---------------- APP ----------------
 instructores_df, cursos_df = cargar_datos()
@@ -151,7 +144,7 @@ if ver_cursos:
         inscripciones_df = pd.concat([inscripciones_df, nueva], ignore_index=True)
         guardar_inscripcion(inscripciones_df)
 
-        st.success(f"✅ Inscripción confirmada. Guardada en Google Sheet.")
+        st.success(f"✅ Inscripción confirmada. Archivo guardado en: `{ARCHIVO_INSCRIPCIONES}`")
 
 # ---------------- TABLA DE INSCRIPCIONES ----------------
 st.subheader("📄 Inscripciones actuales")
