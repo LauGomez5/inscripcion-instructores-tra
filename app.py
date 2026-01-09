@@ -28,9 +28,9 @@ def cargar_datos():
     cursos["Nombre corto"] = cursos["Nombre corto"].astype(str).str.strip()
 
     # Limpiar AÑO
-    if "Año" in cursos.columns:
-        cursos["Año"] = (
-            cursos["Año"]
+    if "AÑO" in cursos.columns:
+        cursos["AÑO"] = (
+            cursos["AÑO"]
             .astype(str)
             .str.extract(r"(\d{4})")[0]
             .astype(float)
@@ -47,9 +47,7 @@ def cargar_inscripciones():
             "Instructor",
             "Curso",
             "Teórico Virtual (inicio)",
-            "Teórico Virtual (fin)",
-            "Instancia Presencial (inicio)",
-            "Presencial (fin)"
+            "Instancia Presencial (inicio)"
         ])
 
 
@@ -88,8 +86,8 @@ if ver_cursos:
     # Cruce correcto con Nombre corto + año 2026
     cursos_2026 = cursos_df[
         (cursos_df["Nombre corto"].isin(cursos_habilitados)) &
-        ("Año" in cursos_df.columns) &
-        (cursos_df["Año"] == ANIO_PERMITIDO)
+        ("AÑO" in cursos_df.columns) &
+        (cursos_df["AÑO"] == ANIO_PERMITIDO)
     ].reset_index(drop=True)
 
     if cursos_2026.empty:
@@ -98,41 +96,28 @@ if ver_cursos:
 
     st.success("Instancias disponibles")
 
-# ---------------- FORM 2 ----------------
-with st.form("form_inscripcion"):
+    # ---------------- FORM 2 ----------------
+    with st.form("form_inscripcion"):
+        opciones = []
+        for _, row in cursos_2026.iterrows():
+            opciones.append(
+                f"{row['Nombre corto']} | "
+                f"Virtual: {row.get('Teórico Virtual (inicio)', '—')} | "
+                f"Presencial: {row.get('Instancia Presencial (inicio)', '—')}"
+            )
 
-    # --- Preparar opciones con 4 fechas + año ---
-    opciones = []
-    for _, row in cursos_2026.iterrows():
-        # Convertir fechas largas en dd/mm para que no se corte
-        def formato_fecha(fecha):
-            try:
-                return pd.to_datetime(fecha).strftime('%d/%m')
-            except:
-                return "—"
-
-        opciones.append(
-            f"{row['Nombre corto']} ({int(row['Año'])})\n"
-            f"Virtual: {formato_fecha(row.get('Teórico Virtual (inicio)', ''))} → {formato_fecha(row.get('Teórico Virtual (fin)', ''))}\n"
-            f"Presencial: {formato_fecha(row.get('Presencial (inicio)', ''))} → {formato_fecha(row.get('Presencial (fin)', ''))}"
-        )
-
-    opcion = st.selectbox("Seleccione la instancia", opciones)
-    confirmar = st.form_submit_button("Confirmar inscripción")
-
-
+        opcion = st.selectbox("Seleccione la instancia", opciones)
+        confirmar = st.form_submit_button("Confirmar inscripción")
 
     if confirmar:
         idx = opciones.index(opcion)
         instancia = cursos_2026.loc[idx]
 
-        # ---- Validar cupo usando las 4 fechas ----
+        # ---- Validar cupo ----
         inscriptos = inscripciones_df[
             (inscripciones_df["Curso"] == instancia["Nombre corto"]) &
             (inscripciones_df["Teórico Virtual (inicio)"] == instancia.get("Teórico Virtual (inicio)", "")) &
-            (inscripciones_df["Teórico Virtual (fin)"] == instancia.get("Teórico Virtual (fin)", "")) &
-            (inscripciones_df["Instancia Presencial (inicio)"] == instancia.get("Instancia Presencial (inicio)", "")) &
-            (inscripciones_df["Presencial (fin)"] == instancia.get("Presencial (fin)", ""))
+            (inscripciones_df["Instancia Presencial (inicio)"] == instancia.get("Instancia Presencial (inicio)", ""))
         ]
 
         if len(inscriptos) >= CUPO_MAXIMO:
@@ -149,14 +134,12 @@ with st.form("form_inscripcion"):
             st.error("❌ Ya estás inscripto en este curso.")
             st.stop()
 
-        # ---- Guardar inscripción con las 4 fechas ----
+        # ---- Guardar ----
         nueva = pd.DataFrame([{
             "Instructor": instructor,
             "Curso": instancia["Nombre corto"],
             "Teórico Virtual (inicio)": instancia.get("Teórico Virtual (inicio)", ""),
-            "Teórico Virtual (fin)": instancia.get("Teórico Virtual (fin)", ""),
-            "Instancia Presencial (inicio)": instancia.get("Instancia Presencial (inicio)", ""),
-            "Presencial (fin)": instancia.get("Presencial (fin)", "")
+            "Instancia Presencial (inicio)": instancia.get("Instancia Presencial (inicio)", "")
         }])
 
         inscripciones_df = pd.concat([inscripciones_df, nueva], ignore_index=True)
