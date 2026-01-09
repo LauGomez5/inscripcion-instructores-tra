@@ -11,11 +11,12 @@ st.set_page_config(
 ANIO_PERMITIDO = 2026
 CUPO_MAXIMO = 2
 
-# ---------------- ARCHIVOS LOCALES ----------------
-ARCHIVO_INSTRUCTORES = "instructores.csv"
-ARCHIVO_CURSOS = "cursos.csv"
+# ---------------- CSV desde GitHub ----------------
+# Reemplaza estos enlaces con los tuyos
+ARCHIVO_INSTRUCTORES = "https://raw.githubusercontent.com/tu_usuario/tu_repo/main/Clasificación%20de%20Instructores.csv"
+ARCHIVO_CURSOS = "https://raw.githubusercontent.com/tu_usuario/tu_repo/main/Planificación%20Cursos%20TRA%20(3).csv"
 
-# Carpeta donde se guardarán las inscripciones
+# Carpeta para guardar inscripciones
 CARPETA_INSCRIPCIONES = "Inscripciones"
 if not os.path.exists(CARPETA_INSCRIPCIONES):
     os.makedirs(CARPETA_INSCRIPCIONES)
@@ -62,7 +63,7 @@ def guardar_inscripcion(df):
 # ---------------- APP ----------------
 instructores_df, cursos_df = cargar_datos()
 
-# Inicializar inscripciones en session_state para mantenerlas en tiempo real
+# Mantener inscripciones en tiempo real
 if "inscripciones_df" not in st.session_state:
     st.session_state.inscripciones_df = cargar_inscripciones()
 
@@ -78,7 +79,6 @@ with st.form("form_seleccion"):
 
 # ---------------- LÓGICA ----------------
 if ver_cursos:
-    # Cursos habilitados para el instructor
     cursos_habilitados = (
         instructores_df[instructores_df["Instructor"] == instructor]["Cursos"]
         .dropna()
@@ -89,7 +89,6 @@ if ver_cursos:
         st.warning("⚠️ No hay cursos asociados a este instructor.")
         st.stop()
 
-    # Cursos 2026
     cursos_2026 = cursos_df[
         (cursos_df["Nombre corto"].isin(cursos_habilitados)) &
         ("Año" in cursos_df.columns) &
@@ -164,3 +163,4 @@ st.download_button(
     file_name="inscripciones.csv",
     mime="text/csv"
 )
+
