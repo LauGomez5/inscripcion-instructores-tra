@@ -114,11 +114,12 @@ with st.form("form_inscripcion"):
         opciones.append(
             f"{row['Nombre corto']} ({int(row['Año'])})\n"
             f"Virtual: {formato_fecha(row.get('Teórico Virtual (inicio)', ''))} → {formato_fecha(row.get('Teórico Virtual (fin)', ''))}\n"
-            f"Presencial: {formato_fecha(row.get('Instancia Presencial (inicio)', ''))} → {formato_fecha(row.get('Presencial (fin)', ''))}"
+            f"Presencial: {formato_fecha(row.get('Instancia Presencial (inicio)', ''))} → {formato_fecha(row.get('Instancia Presencial (fin)', ''))}"
         )
 
     opcion = st.selectbox("Seleccione la instancia", opciones)
     confirmar = st.form_submit_button("Confirmar inscripción")
+
 
 
     if confirmar:
