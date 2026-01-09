@@ -19,13 +19,25 @@ def cargar_datos():
     instructores = pd.read_csv("Clasificación de Instructores.csv")
     cursos = pd.read_csv("Planificación Cursos TRA (3).csv")
 
-    # Normalización
-    instructores["Instructor"] = instructores["Instructor"].astype(str).str.strip()
-    instructores["Cursos"] = instructores["Cursos"].astype(str).str.strip()
+    # Normalización instructores
+    instructores["Instructor"] = (
+        instructores["Instructor"]
+        .astype(str)
+        .str.strip()
+    )
 
+    instructores["Cursos"] = (
+        instructores["Cursos"]
+        .astype(str)
+        .str.replace(";", ",")
+        .str.replace("/", ",")
+        .str.split(",")
+    )
+
+    # Normalización cursos
     cursos["Nombre corto"] = cursos["Nombre corto"].astype(str).str.strip()
 
-    # Limpieza de AÑO (admite texto sucio)
+    # Limpieza del año
     if "AÑO" in cursos.columns:
         cursos["AÑO_LIMPIO"] = (
             cursos["AÑO"]
@@ -66,9 +78,12 @@ with st.form("form_inscripcion"):
         sorted(instructores["Instructor"].unique())
     )
 
-    cursos_habilitados = instructores[
-        instructores["Instructor"] == instructor
-    ]["Cursos"].unique()
+    cursos_habilitados = (
+        instructores[instructores["Instructor"] == instructor]
+        .explode("Cursos")["Cursos"]
+        .str.strip()
+        .unique()
+    )
 
     curso = st.selectbox(
         "📘 Seleccione el curso",
@@ -141,4 +156,5 @@ if submit:
     inscripciones.to_csv("inscripciones.csv", index=False)
 
     st.success("🎉 Inscripción confirmada correctamente.")
+
 
