@@ -49,7 +49,7 @@ def cargar_inscripciones():
             "Teórico Virtual (inicio)",
             "Teórico Virtual (fin)",
             "Instancia Presencial (inicio)",
-            "Instancia Presencial (fin)"
+            "Presencial (fin)"
         ])
 
 
@@ -114,7 +114,7 @@ if ver_cursos:
             opciones.append(
                 f"{row['Nombre corto']}\n"
                 f"Virtual: {formato_fecha(row.get('Teórico Virtual (inicio)', ''))} → {formato_fecha(row.get('Teórico Virtual (fin)', ''))}\n"
-                f"Presencial: {formato_fecha(row.get('Instancia Presencial (inicio)', ''))} → {formato_fecha(row.get('Instancia Presencial (fin)', ''))}"
+                f"Presencial: {formato_fecha(row.get('Instancia Presencial (inicio)', ''))} → {formato_fecha(row.get('Presencial (fin)', ''))}"
             )
 
         opcion = st.selectbox("Seleccione la instancia", opciones)
@@ -130,7 +130,7 @@ if ver_cursos:
             (inscripciones_df["Teórico Virtual (inicio)"] == instancia.get("Teórico Virtual (inicio)", "")) &
             (inscripciones_df["Teórico Virtual (fin)"] == instancia.get("Teórico Virtual (fin)", "")) &
             (inscripciones_df["Instancia Presencial (inicio)"] == instancia.get("Instancia Presencial (inicio)", "")) &
-            (inscripciones_df["Instancia Presencial (fin)"] == instancia.get("Instancia Presencial (fin)", ""))
+            (inscripciones_df["Presencial (fin)"] == instancia.get("Presencial (fin)", ""))
         ]
 
         if len(inscriptos) >= CUPO_MAXIMO:
@@ -154,7 +154,7 @@ if ver_cursos:
             "Teórico Virtual (inicio)": instancia.get("Teórico Virtual (inicio)", ""),
             "Teórico Virtual (fin)": instancia.get("Teórico Virtual (fin)", ""),
             "Instancia Presencial (inicio)": instancia.get("Instancia Presencial (inicio)", ""),
-            "Instancia Presencial (fin)": instancia.get("Instancia Presencial (fin)", "")
+            "Presencial (fin)": instancia.get("Presencial (fin)", "")
         }])
 
         inscripciones_df = pd.concat([inscripciones_df, nueva], ignore_index=True)
