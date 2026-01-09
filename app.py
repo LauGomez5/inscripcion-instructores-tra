@@ -75,12 +75,8 @@ with st.form("form_inscripcion"):
 
     instancias = cursos[
         (cursos["Nombre corto"] == curso) &
-        (cursos["Año"] == ANIO_PERMITIDO)
+        (cursos["AÑO_LIMPIO"] == ANIO_PERMITIDO)
     ].reset_index(drop=True)
-
-    if instancias.empty:
-        st.warning("No hay instancias planificadas para 2026")
-        st.stop()
 
     opciones_instancias = [
         f"Virtual: {row['Teórico Virtual (inicio)']} → {row['Teórico Virtual (fin)']} | "
@@ -93,7 +89,9 @@ with st.form("form_inscripcion"):
         opciones_instancias
     )
 
+    # 👉 ESTE BOTÓN ES OBLIGATORIO
     enviar = st.form_submit_button("Confirmar inscripción")
+
 
 # ===============================
 # PROCESAR INSCRIPCIÓN
