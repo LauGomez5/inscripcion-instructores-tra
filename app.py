@@ -24,9 +24,9 @@ def cargar_datos():
     instructores["Instructor"] = instructores["Instructor"].astype(str).str.strip()
     instructores["Cursos"] = instructores["Cursos"].astype(str).str.strip()
 
-    if "AÑO" in cursos.columns:
-        cursos["AÑO"] = (
-            cursos["AÑO"]
+    if "Año" in cursos.columns:
+        cursos["Año"] = (
+            cursos["Año"]
             .astype(str)
             .str.extract(r"(\d{4})")[0]
             .astype(float)
