@@ -1,166 +1,143 @@
 import streamlit as st
 import pandas as pd
-import unicodedata
+import os
 
-# ===============================
-# CONFIGURACIÓN
-# ===============================
-CUPO_MAX = 2
+# ---------------- CONFIGURACIÓN ----------------
+st.set_page_config(
+    page_title="Inscripción Instructores TRA",
+    layout="centered"
+)
+
 ANIO_PERMITIDO = 2026
+CUPO_MAXIMO = 2
+ARCHIVO_INSCRIPCIONES = "inscripciones.csv"
 
-st.set_page_config(page_title="Inscripción Instructores TRA", layout="centered")
-st.title("📋 Inscripción de Instructores – Cursos TRA")
-
-# ===============================
-# FUNCIONES
-# ===============================
-
-def normalizar(texto):
-    if pd.isna(texto):
-        return ""
-    texto = str(texto)
-    texto = unicodedata.normalize("NFD", texto)
-    texto = "".join(c for c in texto if unicodedata.category(c) != "Mn")
-    return texto.upper().strip()
-
-# ===============================
-# CARGA DE DATOS
-# ===============================
-
+# ---------------- CARGA DE DATOS ----------------
 @st.cache_data
 def cargar_datos():
     instructores = pd.read_csv("Clasificación de Instructores.csv")
     cursos = pd.read_csv("Planificación Cursos TRA (3).csv")
 
-    # Instructor
+    instructores.columns = instructores.columns.str.strip()
+    cursos.columns = cursos.columns.str.strip()
+
     instructores["Instructor"] = instructores["Instructor"].astype(str).str.strip()
-    instructores["Instructor_key"] = instructores["Instructor"].apply(normalizar)
-
-    # Cursos asociados (lista)
-    instructores["Cursos"] = (
-        instructores["Cursos"]
-        .astype(str)
-        .str.replace(";", ",")
-        .str.replace("/", ",")
-        .str.split(",")
-    )
-
-    # Cursos planificación
-    cursos["Nombre corto"] = cursos["Nombre corto"].astype(str).str.strip()
+    instructores["Cursos"] = instructores["Cursos"].astype(str).str.strip()
 
     if "AÑO" in cursos.columns:
-        cursos["AÑO_LIMPIO"] = (
+        cursos["AÑO"] = (
             cursos["AÑO"]
             .astype(str)
             .str.extract(r"(\d{4})")[0]
             .astype(float)
         )
-    else:
-        cursos["AÑO_LIMPIO"] = None
 
     return instructores, cursos
 
 
-instructores, cursos = cargar_datos()
+def cargar_inscripciones():
+    if os.path.exists(ARCHIVO_INSCRIPCIONES):
+        return pd.read_csv(ARCHIVO_INSCRIPCIONES)
+    else:
+        return pd.DataFrame(columns=[
+            "Instructor",
+            "Curso",
+            "Teórico Virtual (inicio)",
+            "Instancia Presencial (inicio)"
+        ])
 
-# ===============================
-# INSCRIPCIONES
-# ===============================
 
-try:
-    inscripciones = pd.read_csv("inscripciones.csv")
-except FileNotFoundError:
-    inscripciones = pd.DataFrame(columns=[
-        "Instructor",
-        "Curso",
-        "Teórico Virtual (inicio)",
-        "Instancia Presencial (inicio)"
-    ])
+def guardar_inscripcion(df):
+    df.to_csv(ARCHIVO_INSCRIPCIONES, index=False)
 
-# ===============================
-# FORMULARIO
-# ===============================
 
-with st.form("form_inscripcion"):
+# ---------------- APP ----------------
+instructores_df, cursos_df = cargar_datos()
+inscripciones_df = cargar_inscripciones()
 
-    nombres = sorted(instructores["Instructor"].unique())
-    instructor = st.selectbox("👤 Seleccione su nombre", nombres)
+st.title("📋 Inscripción de Instructores – Cursos TRA")
 
-    instructor_key = normalizar(instructor)
+# ---------------- FORM 1: SELECCIÓN ----------------
+with st.form("form_seleccion"):
+    instructor = st.selectbox(
+        "Seleccione su nombre",
+        sorted(instructores_df["Instructor"].dropna().unique())
+    )
+    ver_cursos = st.form_submit_button("Ver cursos disponibles")
+
+# ---------------- LÓGICA ----------------
+if ver_cursos:
 
     cursos_habilitados = (
-        instructores[instructores["Instructor_key"] == instructor_key]
-        .explode("Cursos")["Cursos"]
-        .str.strip()
+        instructores_df[instructores_df["Instructor"] == instructor]["Cursos"]
+        .dropna()
         .unique()
     )
 
-    curso = st.selectbox(
-        "📘 Seleccione el curso",
-        sorted(cursos_habilitados)
-    )
+    if len(cursos_habilitados) == 0:
+        st.warning("⚠️ No hay cursos asociados a este instructor.")
+        st.stop()
 
-    instancias = cursos[
-        (cursos["Nombre corto"] == curso) &
-        (cursos["AÑO_LIMPIO"] == ANIO_PERMITIDO)
+    cursos_2026 = cursos_df[
+        (cursos_df["Cursos"].isin(cursos_habilitados)) &
+        ("AÑO" in cursos_df.columns) &
+        (cursos_df["AÑO"] == ANIO_PERMITIDO)
     ].reset_index(drop=True)
 
-    opciones = []
-    if not instancias.empty:
-        for _, row in instancias.iterrows():
+    if cursos_2026.empty:
+        st.info("ℹ️ No hay instancias planificadas para el año 2026.")
+        st.stop()
+
+    st.success("Instancias disponibles")
+
+    # ---------------- FORM 2: INSCRIPCIÓN ----------------
+    with st.form("form_inscripcion"):
+        opciones = []
+        for i, row in cursos_2026.iterrows():
             opciones.append(
-                f"Virtual: {row['Teórico Virtual (inicio)']} → {row['Teórico Virtual (fin)']} | "
-                f"Presencial: {row['Instancia Presencial (inicio)']} → {row['Presencial (fin)']}"
+                f"{row['Cursos']} | "
+                f"Virtual: {row.get('Teórico Virtual (inicio)', '—')} | "
+                f"Presencial: {row.get('Instancia Presencial (inicio)', '—')}"
             )
 
-    opcion = st.selectbox(
-        "🗓️ Seleccione la instancia",
-        opciones if opciones else ["No hay instancias disponibles"]
-    )
+        opcion = st.selectbox("Seleccione la instancia", opciones)
+        confirmar = st.form_submit_button("Confirmar inscripción")
 
-    submit = st.form_submit_button("✅ Confirmar inscripción")
+    if confirmar:
+        idx = opciones.index(opcion)
+        instancia = cursos_2026.loc[idx]
 
-# ===============================
-# PROCESO
-# ===============================
+        # ---- Validar cupo ----
+        inscriptos = inscripciones_df[
+            (inscripciones_df["Curso"] == instancia["Cursos"]) &
+            (inscripciones_df["Teórico Virtual (inicio)"] == instancia.get("Teórico Virtual (inicio)", "")) &
+            (inscripciones_df["Instancia Presencial (inicio)"] == instancia.get("Instancia Presencial (inicio)", ""))
+        ]
 
-if submit:
+        if len(inscriptos) >= CUPO_MAXIMO:
+            st.error("❌ Cupo completo para esta instancia.")
+            st.stop()
 
-    if instancias.empty:
-        st.warning("📅 No hay instancias planificadas para este curso en 2026.")
-        st.stop()
+        # ---- Evitar doble inscripción ----
+        ya_inscripto = inscripciones_df[
+            (inscripciones_df["Instructor"] == instructor) &
+            (inscripciones_df["Curso"] == instancia["Cursos"])
+        ]
 
-    idx = opciones.index(opcion)
-    instancia = instancias.iloc[idx]
+        if not ya_inscripto.empty:
+            st.error("❌ Ya estás inscripto en este curso.")
+            st.stop()
 
-    inscriptos = inscripciones[
-        (inscripciones["Curso"] == curso) &
-        (inscripciones["Teórico Virtual (inicio)"] == instancia["Teórico Virtual (inicio)"]) &
-        (inscripciones["Instancia Presencial (inicio)"] == instancia["Instancia Presencial (inicio)"])
-    ]
+        # ---- Guardar ----
+        nueva = pd.DataFrame([{
+            "Instructor": instructor,
+            "Curso": instancia["Cursos"],
+            "Teórico Virtual (inicio)": instancia.get("Teórico Virtual (inicio)", ""),
+            "Instancia Presencial (inicio)": instancia.get("Instancia Presencial (inicio)", "")
+        }])
 
-    if len(inscriptos) >= CUPO_MAX:
-        st.error("❌ Cupo completo para esta instancia.")
-        st.stop()
+        inscripciones_df = pd.concat([inscripciones_df, nueva], ignore_index=True)
+        guardar_inscripcion(inscripciones_df)
 
-    ya_inscripto = inscripciones[
-        (inscripciones["Instructor"] == instructor) &
-        (inscripciones["Curso"] == curso)
-    ]
-
-    if not ya_inscripto.empty:
-        st.error("❌ Ya estás inscripto en este curso.")
-        st.stop()
-
-    nueva = pd.DataFrame([{
-        "Instructor": instructor,
-        "Curso": curso,
-        "Teórico Virtual (inicio)": instancia["Teórico Virtual (inicio)"],
-        "Instancia Presencial (inicio)": instancia["Instancia Presencial (inicio)"]
-    }])
-
-    inscripciones = pd.concat([inscripciones, nueva], ignore_index=True)
-    inscripciones.to_csv("inscripciones.csv", index=False)
-
-    st.success("🎉 Inscripción confirmada correctamente.")
+        st.success("✅ Inscripción confirmada correctamente")
 
