@@ -62,7 +62,7 @@ def guardar_inscripcion(df):
 # ---------------- APP ----------------
 instructores_df, cursos_df = cargar_datos()
 
-# Inicializar inscripciones en session_state
+# Inicializar inscripciones en session_state para mantenerlas en tiempo real
 if "inscripciones_df" not in st.session_state:
     st.session_state.inscripciones_df = cargar_inscripciones()
 
@@ -150,7 +150,7 @@ if ver_cursos:
                     ignore_index=True
                 )
                 guardar_inscripcion(st.session_state.inscripciones_df)
-                st.success(f"✅ Inscripción confirmada. Archivo guardado en `{ARCHIVO_INSCRIPCIONES}`")
+                st.success(f"✅ Inscripción confirmada. Archivo guardado en: `{ARCHIVO_INSCRIPCIONES}`")
 
 # ---------------- TABLA DE INSCRIPCIONES ----------------
 st.subheader("📄 Inscripciones actuales")
@@ -164,4 +164,3 @@ st.download_button(
     file_name="inscripciones.csv",
     mime="text/csv"
 )
-
