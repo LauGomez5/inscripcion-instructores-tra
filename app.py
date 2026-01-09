@@ -28,9 +28,9 @@ def cargar_datos():
     cursos["Nombre corto"] = cursos["Nombre corto"].astype(str).str.strip()
 
     # Limpiar AÑO
-    if "AÑO" in cursos.columns:
-        cursos["AÑO"] = (
-            cursos["AÑO"]
+    if "Año" in cursos.columns:
+        cursos["Año"] = (
+            cursos["Año"]
             .astype(str)
             .str.extract(r"(\d{4})")[0]
             .astype(float)
