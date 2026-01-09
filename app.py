@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import os
@@ -18,15 +19,19 @@ def cargar_datos():
     instructores = pd.read_csv("Clasificación de Instructores.csv")
     cursos = pd.read_csv("Planificación Cursos TRA (3).csv")
 
+    # Limpiar nombres de columnas
     instructores.columns = instructores.columns.str.strip()
     cursos.columns = cursos.columns.str.strip()
 
+    # Normalizar textos
     instructores["Instructor"] = instructores["Instructor"].astype(str).str.strip()
     instructores["Cursos"] = instructores["Cursos"].astype(str).str.strip()
+    cursos["Nombre corto"] = cursos["Nombre corto"].astype(str).str.strip()
 
-    if "Año" in cursos.columns:
-        cursos["Año"] = (
-            cursos["Año"]
+    # Limpiar AÑO
+    if "AÑO" in cursos.columns:
+        cursos["AÑO"] = (
+            cursos["AÑO"]
             .astype(str)
             .str.extract(r"(\d{4})")[0]
             .astype(float)
@@ -57,7 +62,7 @@ inscripciones_df = cargar_inscripciones()
 
 st.title("📋 Inscripción de Instructores – Cursos TRA")
 
-# ---------------- FORM 1: SELECCIÓN ----------------
+# ---------------- FORM 1 ----------------
 with st.form("form_seleccion"):
     instructor = st.selectbox(
         "Seleccione su nombre",
@@ -68,6 +73,7 @@ with st.form("form_seleccion"):
 # ---------------- LÓGICA ----------------
 if ver_cursos:
 
+    # Cursos habilitados desde Clasificación
     cursos_habilitados = (
         instructores_df[instructores_df["Instructor"] == instructor]["Cursos"]
         .dropna()
@@ -78,8 +84,9 @@ if ver_cursos:
         st.warning("⚠️ No hay cursos asociados a este instructor.")
         st.stop()
 
+    # Cruce correcto con Nombre corto + año 2026
     cursos_2026 = cursos_df[
-        (cursos_df["Cursos"].isin(cursos_habilitados)) &
+        (cursos_df["Nombre corto"].isin(cursos_habilitados)) &
         ("AÑO" in cursos_df.columns) &
         (cursos_df["AÑO"] == ANIO_PERMITIDO)
     ].reset_index(drop=True)
@@ -90,12 +97,12 @@ if ver_cursos:
 
     st.success("Instancias disponibles")
 
-    # ---------------- FORM 2: INSCRIPCIÓN ----------------
+    # ---------------- FORM 2 ----------------
     with st.form("form_inscripcion"):
         opciones = []
-        for i, row in cursos_2026.iterrows():
+        for _, row in cursos_2026.iterrows():
             opciones.append(
-                f"{row['Cursos']} | "
+                f"{row['Nombre corto']} | "
                 f"Virtual: {row.get('Teórico Virtual (inicio)', '—')} | "
                 f"Presencial: {row.get('Instancia Presencial (inicio)', '—')}"
             )
@@ -109,7 +116,7 @@ if ver_cursos:
 
         # ---- Validar cupo ----
         inscriptos = inscripciones_df[
-            (inscripciones_df["Curso"] == instancia["Cursos"]) &
+            (inscripciones_df["Curso"] == instancia["Nombre corto"]) &
             (inscripciones_df["Teórico Virtual (inicio)"] == instancia.get("Teórico Virtual (inicio)", "")) &
             (inscripciones_df["Instancia Presencial (inicio)"] == instancia.get("Instancia Presencial (inicio)", ""))
         ]
@@ -121,7 +128,7 @@ if ver_cursos:
         # ---- Evitar doble inscripción ----
         ya_inscripto = inscripciones_df[
             (inscripciones_df["Instructor"] == instructor) &
-            (inscripciones_df["Curso"] == instancia["Cursos"])
+            (inscripciones_df["Curso"] == instancia["Nombre corto"])
         ]
 
         if not ya_inscripto.empty:
@@ -131,7 +138,7 @@ if ver_cursos:
         # ---- Guardar ----
         nueva = pd.DataFrame([{
             "Instructor": instructor,
-            "Curso": instancia["Cursos"],
+            "Curso": instancia["Nombre corto"],
             "Teórico Virtual (inicio)": instancia.get("Teórico Virtual (inicio)", ""),
             "Instancia Presencial (inicio)": instancia.get("Instancia Presencial (inicio)", "")
         }])
@@ -140,4 +147,3 @@ if ver_cursos:
         guardar_inscripcion(inscripciones_df)
 
         st.success("✅ Inscripción confirmada correctamente")
-
