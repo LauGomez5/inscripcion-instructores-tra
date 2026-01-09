@@ -1,8 +1,9 @@
 import streamlit as st
 import pandas as pd
+import unicodedata
 
 # ===============================
-# CONFIGURACIÓN GENERAL
+# CONFIGURACIÓN
 # ===============================
 CUPO_MAX = 2
 ANIO_PERMITIDO = 2026
@@ -11,7 +12,19 @@ st.set_page_config(page_title="Inscripción Instructores TRA", layout="centered"
 st.title("📋 Inscripción de Instructores – Cursos TRA")
 
 # ===============================
-# CARGA Y LIMPIEZA DE DATOS
+# FUNCIONES
+# ===============================
+
+def normalizar(texto):
+    if pd.isna(texto):
+        return ""
+    texto = str(texto)
+    texto = unicodedata.normalize("NFD", texto)
+    texto = "".join(c for c in texto if unicodedata.category(c) != "Mn")
+    return texto.upper().strip()
+
+# ===============================
+# CARGA DE DATOS
 # ===============================
 
 @st.cache_data
@@ -19,13 +32,11 @@ def cargar_datos():
     instructores = pd.read_csv("Clasificación de Instructores.csv")
     cursos = pd.read_csv("Planificación Cursos TRA (3).csv")
 
-    # Normalización instructores
-    instructores["Instructor"] = (
-        instructores["Instructor"]
-        .astype(str)
-        .str.strip()
-    )
+    # Instructor
+    instructores["Instructor"] = instructores["Instructor"].astype(str).str.strip()
+    instructores["Instructor_key"] = instructores["Instructor"].apply(normalizar)
 
+    # Cursos asociados (lista)
     instructores["Cursos"] = (
         instructores["Cursos"]
         .astype(str)
@@ -34,10 +45,9 @@ def cargar_datos():
         .str.split(",")
     )
 
-    # Normalización cursos
+    # Cursos planificación
     cursos["Nombre corto"] = cursos["Nombre corto"].astype(str).str.strip()
 
-    # Limpieza del año
     if "AÑO" in cursos.columns:
         cursos["AÑO_LIMPIO"] = (
             cursos["AÑO"]
@@ -73,13 +83,13 @@ except FileNotFoundError:
 
 with st.form("form_inscripcion"):
 
-    instructor = st.selectbox(
-        "👤 Seleccione su nombre",
-        sorted(instructores["Instructor"].unique())
-    )
+    nombres = sorted(instructores["Instructor"].unique())
+    instructor = st.selectbox("👤 Seleccione su nombre", nombres)
+
+    instructor_key = normalizar(instructor)
 
     cursos_habilitados = (
-        instructores[instructores["Instructor"] == instructor]
+        instructores[instructores["Instructor_key"] == instructor_key]
         .explode("Cursos")["Cursos"]
         .str.strip()
         .unique()
@@ -111,7 +121,7 @@ with st.form("form_inscripcion"):
     submit = st.form_submit_button("✅ Confirmar inscripción")
 
 # ===============================
-# PROCESAR INSCRIPCIÓN
+# PROCESO
 # ===============================
 
 if submit:
@@ -123,7 +133,6 @@ if submit:
     idx = opciones.index(opcion)
     instancia = instancias.iloc[idx]
 
-    # Validar cupo
     inscriptos = inscripciones[
         (inscripciones["Curso"] == curso) &
         (inscripciones["Teórico Virtual (inicio)"] == instancia["Teórico Virtual (inicio)"]) &
@@ -134,7 +143,6 @@ if submit:
         st.error("❌ Cupo completo para esta instancia.")
         st.stop()
 
-    # Evitar doble inscripción
     ya_inscripto = inscripciones[
         (inscripciones["Instructor"] == instructor) &
         (inscripciones["Curso"] == curso)
@@ -144,7 +152,6 @@ if submit:
         st.error("❌ Ya estás inscripto en este curso.")
         st.stop()
 
-    # Guardar inscripción
     nueva = pd.DataFrame([{
         "Instructor": instructor,
         "Curso": curso,
@@ -156,5 +163,4 @@ if submit:
     inscripciones.to_csv("inscripciones.csv", index=False)
 
     st.success("🎉 Inscripción confirmada correctamente.")
-
 
