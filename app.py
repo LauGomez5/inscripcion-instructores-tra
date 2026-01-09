@@ -29,9 +29,9 @@ def cargar_datos():
     cursos["Nombre corto"] = cursos["Nombre corto"].astype(str).str.strip()
 
     # Limpiar AÑO
-    if "AÑO" in cursos.columns:
-        cursos["AÑO"] = (
-            cursos["AÑO"]
+    if "Año" in cursos.columns:
+        cursos["Año"] = (
+            cursos["Año"]
             .astype(str)
             .str.extract(r"(\d{4})")[0]
             .astype(float)
@@ -87,8 +87,8 @@ if ver_cursos:
     # Cruce correcto con Nombre corto + año 2026
     cursos_2026 = cursos_df[
         (cursos_df["Nombre corto"].isin(cursos_habilitados)) &
-        ("AÑO" in cursos_df.columns) &
-        (cursos_df["AÑO"] == ANIO_PERMITIDO)
+        ("Año" in cursos_df.columns) &
+        (cursos_df["Año"] == ANIO_PERMITIDO)
     ].reset_index(drop=True)
 
     if cursos_2026.empty:
