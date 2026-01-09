@@ -97,53 +97,56 @@ if ver_cursos:
 
     st.success("Instancias disponibles")
 
-    # ---------------- FORM 2 ----------------
-    with st.form("form_inscripcion"):
-        opciones = []
-        for _, row in cursos_2026.iterrows():
-            opciones.append(
-                f"{row['Nombre corto']} | "
-                f"Virtual: {row.get('Teórico Virtual (inicio)', '—')} | "
-                f"Presencial: {row.get('Instancia Presencial (inicio)', '—')}"
-            )
+# ---------------- FORM 2 ----------------
+with st.form("form_inscripcion"):
+    opciones = []
+    for _, row in cursos_2026.iterrows():
+        opciones.append(
+            f"{row['Nombre corto']} | "
+            f"Virtual: {row.get('Teórico Virtual (inicio)', '—')} → {row.get('Teórico Virtual (fin)', '—')} | "
+            f"Presencial: {row.get('Instancia Presencial (inicio)', '—')} → {row.get('Instancia Presencial (fin)', '—')}"
+        )
 
-        opcion = st.selectbox("Seleccione la instancia", opciones)
-        confirmar = st.form_submit_button("Confirmar inscripción")
+    opcion = st.selectbox("Seleccione la instancia", opciones)
+    confirmar = st.form_submit_button("Confirmar inscripción")
 
-    if confirmar:
-        idx = opciones.index(opcion)
-        instancia = cursos_2026.loc[idx]
+if confirmar:
+    idx = opciones.index(opcion)
+    instancia = cursos_2026.loc[idx]
 
-        # ---- Validar cupo ----
-        inscriptos = inscripciones_df[
-            (inscripciones_df["Curso"] == instancia["Nombre corto"]) &
-            (inscripciones_df["Teórico Virtual (inicio)"] == instancia.get("Teórico Virtual (inicio)", "")) &
-            (inscripciones_df["Instancia Presencial (inicio)"] == instancia.get("Instancia Presencial (inicio)", ""))
-        ]
+    # ---- Validar cupo ----
+    inscriptos = inscripciones_df[
+        (inscripciones_df["Curso"] == instancia["Nombre corto"]) &
+        (inscripciones_df["Teórico Virtual (inicio)"] == instancia.get("Teórico Virtual (inicio)", "")) &
+        (inscripciones_df["Instancia Presencial (inicio)"] == instancia.get("Instancia Presencial (inicio)", ""))
+    ]
 
-        if len(inscriptos) >= CUPO_MAXIMO:
-            st.error("❌ Cupo completo para esta instancia.")
-            st.stop()
+    if len(inscriptos) >= CUPO_MAXIMO:
+        st.error("❌ Cupo completo para esta instancia.")
+        st.stop()
 
-        # ---- Evitar doble inscripción ----
-        ya_inscripto = inscripciones_df[
-            (inscripciones_df["Instructor"] == instructor) &
-            (inscripciones_df["Curso"] == instancia["Nombre corto"])
-        ]
+    # ---- Evitar doble inscripción ----
+    ya_inscripto = inscripciones_df[
+        (inscripciones_df["Instructor"] == instructor) &
+        (inscripciones_df["Curso"] == instancia["Nombre corto"])
+    ]
 
-        if not ya_inscripto.empty:
-            st.error("❌ Ya estás inscripto en este curso.")
-            st.stop()
+    if not ya_inscripto.empty:
+        st.error("❌ Ya estás inscripto en este curso.")
+        st.stop()
 
-        # ---- Guardar ----
-        nueva = pd.DataFrame([{
-            "Instructor": instructor,
-            "Curso": instancia["Nombre corto"],
-            "Teórico Virtual (inicio)": instancia.get("Teórico Virtual (inicio)", ""),
-            "Instancia Presencial (inicio)": instancia.get("Instancia Presencial (inicio)", "")
-        }])
+    # ---- Guardar ----
+    nueva = pd.DataFrame([{
+        "Instructor": instructor,
+        "Curso": instancia["Nombre corto"],
+        "Teórico Virtual (inicio)": instancia.get("Teórico Virtual (inicio)", ""),
+        "Teórico Virtual (fin)": instancia.get("Teórico Virtual (fin)", ""),
+        "Instancia Presencial (inicio)": instancia.get("Instancia Presencial (inicio)", ""),
+        "Instancia Presencial (fin)": instancia.get("Instancia Presencial (fin)", "")
+    }])
 
-        inscripciones_df = pd.concat([inscripciones_df, nueva], ignore_index=True)
-        guardar_inscripcion(inscripciones_df)
+    inscripciones_df = pd.concat([inscripciones_df, nueva], ignore_index=True)
+    guardar_inscripcion(inscripciones_df)
 
-        st.success("✅ Inscripción confirmada correctamente")
+    st.success("✅ Inscripción confirmada correctamente")
+
