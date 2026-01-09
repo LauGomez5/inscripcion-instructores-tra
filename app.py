@@ -98,27 +98,28 @@ if ver_cursos:
 
     st.success("Instancias disponibles")
 
-    # ---------------- FORM 2 ----------------
-    with st.form("form_inscripcion"):
+# ---------------- FORM 2 ----------------
+with st.form("form_inscripcion"):
 
-        # --- Preparar opciones con 4 fechas ---
-        opciones = []
-        for _, row in cursos_2026.iterrows():
-            # Convertir fechas largas en dd/mm para que no se corte
-            def formato_fecha(fecha):
-                try:
-                    return pd.to_datetime(fecha).strftime('%d/%m')
-                except:
-                    return "—"
+    # --- Preparar opciones con 4 fechas + año ---
+    opciones = []
+    for _, row in cursos_2026.iterrows():
+        # Convertir fechas largas en dd/mm para que no se corte
+        def formato_fecha(fecha):
+            try:
+                return pd.to_datetime(fecha).strftime('%d/%m')
+            except:
+                return "—"
 
-            opciones.append(
-                f"{row['Nombre corto']}\n"
-                f"Virtual: {formato_fecha(row.get('Teórico Virtual (inicio)', ''))} → {formato_fecha(row.get('Teórico Virtual (fin)', ''))}\n"
-                f"Presencial: {formato_fecha(row.get('Instancia Presencial (inicio)', ''))} → {formato_fecha(row.get('Presencial (fin)', ''))}"
-            )
+        opciones.append(
+            f"{row['Nombre corto']} ({int(row['Año'])})\n"
+            f"Virtual: {formato_fecha(row.get('Teórico Virtual (inicio)', ''))} → {formato_fecha(row.get('Teórico Virtual (fin)', ''))}\n"
+            f"Presencial: {formato_fecha(row.get('Instancia Presencial (inicio)', ''))} → {formato_fecha(row.get('Presencial (fin)', ''))}"
+        )
 
-        opcion = st.selectbox("Seleccione la instancia", opciones)
-        confirmar = st.form_submit_button("Confirmar inscripción")
+    opcion = st.selectbox("Seleccione la instancia", opciones)
+    confirmar = st.form_submit_button("Confirmar inscripción")
+
 
     if confirmar:
         idx = opciones.index(opcion)
