@@ -26,13 +26,13 @@ def cargar_datos():
     instructores["Cursos"] = instructores["Cursos"].astype(str).str.strip()
 
     cursos["Nombre corto"] = cursos["Nombre corto"].astype(str).str.strip()
-    cursos["AÑO"] = (
-        cursos["AÑO"]
+    cursos["Año"] = (
+        cursos["Año"]
         .astype(str)
         .str.strip()
         .str.replace(".0", "", regex=False)
     )
-    cursos["AÑO"] = pd.to_numeric(cursos["AÑO"], errors="coerce")
+    cursos["Año"] = pd.to_numeric(cursos["Año"], errors="coerce")
 
     return instructores, cursos
 
@@ -75,7 +75,7 @@ with st.form("form_inscripcion"):
 
     instancias = cursos[
         (cursos["Nombre corto"] == curso) &
-        (cursos["AÑO"] == ANIO_PERMITIDO)
+        (cursos["Año"] == ANIO_PERMITIDO)
     ].reset_index(drop=True)
 
     if instancias.empty:
