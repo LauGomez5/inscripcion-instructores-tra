@@ -37,7 +37,7 @@ def cargar_datos():
     col_anio = None
     for c in cursos.columns:
         c_norm = c.upper().replace("Ñ", "N").strip()
-        if c_norm in ["AÑO", "ANIO"]:
+        if c_norm in ["Año", "ANIO"]:
             col_anio = c
             break
 
